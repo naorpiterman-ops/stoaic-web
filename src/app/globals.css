@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
+/* ── Arete Design System ── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces */
+  --paper:   #F0EAD6;
+  --paper-1: #F5F0DE;
+  --paper-2: #EBE3CB;
+  --paper-3: #E2D8BB;
+  --paper-4: #C9BD9A;
+
+  /* Ink */
+  --ink:   #3A2818;
+  --ink-1: #5C3A1E;
+  --ink-2: #7A5A3E;
+  --ink-3: #A8896A;
+
+  /* Accents */
+  --sienna:      #8B4513;
+  --sienna-1:    #A05A22;
+  --sienna-2:    #6E3510;
+  --sienna-soft: #C9986B;
+  --tan:         #D4A574;
+  --tan-soft:    #E6C9A0;
+  --laurel:      #7A8C5E;
+
+  /* Semantic */
+  --success: #6B8E5C;
+  --warning: #B8860B;
+  --danger:  #A03A2C;
+
+  /* Borders */
+  --hairline:        rgba(58,40,24,0.12);
+  --hairline-strong: rgba(58,40,24,0.22);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-paper:        var(--paper);
+  --color-paper-1:      var(--paper-1);
+  --color-paper-2:      var(--paper-2);
+  --color-paper-3:      var(--paper-3);
+  --color-paper-4:      var(--paper-4);
+  --color-ink:          var(--ink);
+  --color-ink-1:        var(--ink-1);
+  --color-ink-2:        var(--ink-2);
+  --color-ink-3:        var(--ink-3);
+  --color-sienna:       var(--sienna);
+  --color-sienna-1:     var(--sienna-1);
+  --color-sienna-soft:  var(--sienna-soft);
+  --color-tan:          var(--tan);
+  --color-tan-soft:     var(--tan-soft);
+  --color-laurel:       var(--laurel);
+  --color-success:      var(--success);
+  --color-warning:      var(--warning);
+  --color-danger:       var(--danger);
+  --color-hairline:     var(--hairline);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Frank Ruhl Libre', Georgia, serif;
+  direction: rtl;
+}
+
+/* Typography */
+.font-display { font-size: 44px; line-height: 1.10; letter-spacing: -0.02em; }
+.font-h1      { font-size: 32px; line-height: 1.18; letter-spacing: -0.015em; }
+.font-h2      { font-size: 24px; line-height: 1.25; letter-spacing: -0.01em; }
+.font-h3      { font-size: 20px; line-height: 1.30; }
+.font-lead    { font-size: 19px; line-height: 1.55; }
+.font-body    { font-size: 17px; line-height: 1.55; }
+.font-body-sm { font-size: 15px; line-height: 1.50; }
+.font-caption { font-size: 13px; line-height: 1.40; letter-spacing: 0.01em; font-family: 'Inter', system-ui, sans-serif; }
+.font-overline{ font-size: 11px; line-height: 1.30; letter-spacing: 0.10em; font-family: 'Inter', system-ui, sans-serif; text-transform: uppercase; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--paper-2); }
+::-webkit-scrollbar-thumb { background: var(--paper-4); border-radius: 99px; }
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--sienna);
+  outline-offset: 3px;
+  border-radius: 4px;
 }

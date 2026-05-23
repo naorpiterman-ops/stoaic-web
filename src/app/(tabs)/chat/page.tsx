@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Archive } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 import { storage } from '@/lib/storage'
 import { buildSystemPrompt } from '@/lib/memory'
 import type { Message } from '@/lib/types'
@@ -40,10 +41,23 @@ function Bubble({ msg }: { msg: Message }) {
         fontSize: 17,
         fontFamily: 'Frank Ruhl Libre, serif',
         lineHeight: 1.55,
-        whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
       }}>
-        {msg.content}
+        {isUser ? (
+          <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+        ) : (
+          <ReactMarkdown
+            components={{
+              p: ({ children }) => <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{children}</p>,
+              strong: ({ children }) => <strong style={{ fontWeight: 700 }}>{children}</strong>,
+              em: ({ children }) => <em style={{ fontStyle: 'italic' }}>{children}</em>,
+              ul: ({ children }) => <ul style={{ margin: '4px 0', paddingRight: 20 }}>{children}</ul>,
+              li: ({ children }) => <li style={{ marginBottom: 4 }}>{children}</li>,
+            }}
+          >
+            {msg.content}
+          </ReactMarkdown>
+        )}
       </div>
     </div>
   )
@@ -109,12 +123,16 @@ export default function ChatPage() {
       const reader = res.body!.getReader()
       const dec = new TextDecoder()
       let full = ''
+      let buffer = ''
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        const chunk = dec.decode(value)
-        for (const line of chunk.split('\n')) {
+        buffer += dec.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
           if (!line.startsWith('data: ')) continue
           const data = line.slice(6)
           if (data === '[DONE]') break
@@ -123,6 +141,20 @@ export default function ChatPage() {
             full += text
             setStreamText(full)
           } catch { /* skip */ }
+        }
+      }
+
+      // Process any remaining buffer
+      if (buffer) {
+        if (buffer.startsWith('data: ')) {
+          const data = buffer.slice(6)
+          if (data !== '[DONE]') {
+            try {
+              const { text } = JSON.parse(data)
+              full += text
+              setStreamText(full)
+            } catch { /* skip */ }
+          }
         }
       }
 

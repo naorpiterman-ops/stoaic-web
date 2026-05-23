@@ -4,13 +4,15 @@ import { NextRequest } from 'next/server'
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
-  const { messages, systemPrompt, apiKey } = await req.json()
+  const { messages, systemPrompt } = await req.json()
+
+  const apiKey = process.env.ANTHROPIC_API_KEY
 
   if (!apiKey) {
-    return new Response('לא נמצא מפתח API', { status: 401 })
+    return new Response('API key not configured on server', { status: 500 })
   }
 
-  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: false })
+  const client = new Anthropic({ apiKey })
 
   const stream = await client.messages.stream({
     model: 'claude-sonnet-4-6',

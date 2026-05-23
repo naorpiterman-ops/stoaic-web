@@ -18,15 +18,12 @@ export default function MorningPrep({ onBack }: { onBack: () => void }) {
   }
 
   async function getAnalysis() {
-    const apiKey = storage.getApiKey()
-    if (!apiKey) { saveAndBack(); return }
     setLoading(true)
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          apiKey,
           systemPrompt: '',
           messages: [{ role: 'user', content: `כתוב תגובה סטואית קצרה (3-4 משפטים) למה שאני כתבתי:\n\nתרחיש 1 (יום קשה): ${answers[0]}\nתרחיש 2 (יום טוב): ${answers[1]}` }],
         }),

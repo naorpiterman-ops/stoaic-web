@@ -8,15 +8,12 @@ export default function FreeWriting({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(false)
 
   async function analyze() {
-    const apiKey = storage.getApiKey()
-    if (!apiKey) { save(); return }
     setLoading(true)
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          apiKey,
           systemPrompt: '',
           messages: [{ role: 'user', content: `נתח את הכתיבה הבאה דרך עדשה סטואית — זהה עקרונות סטואיים, דפוסים חוזרים, והצע תרגיל ספציפי אחד. כתוב 4-5 משפטים:\n\n${text}` }],
         }),

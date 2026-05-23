@@ -66,8 +66,6 @@ export default function ChatPage() {
   const send = useCallback(async () => {
     const text = input.trim()
     if (!text || streaming) return
-    const apiKey = storage.getApiKey()
-    if (!apiKey) { setError('הגדר מפתח API בהגדרות'); return }
 
     setError('')
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: text, timestamp: Date.now() }
@@ -82,7 +80,6 @@ export default function ChatPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          apiKey,
           systemPrompt: buildSystemPrompt(),
           messages: next.map(m => ({ role: m.role, content: m.content })),
         }),

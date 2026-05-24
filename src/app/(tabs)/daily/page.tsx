@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { RefreshCw, Volume2, Save, Trash2 } from 'lucide-react'
+import { RefreshCw, Volume2, Save, Trash2, Globe } from 'lucide-react'
 import { getDailyQuote } from '@/lib/quotes'
 import { getDailyReading } from '@/lib/daily-readings'
 import type { StoicQuote } from '@/lib/types'
@@ -9,7 +9,7 @@ import type { DailyReading } from '@/lib/daily-readings'
 interface Note {
   id: string
   text: string
-  position: number
+  selectedText?: string
   timestamp: number
 }
 
@@ -18,8 +18,9 @@ export default function DailyPage() {
   const [reading, setReading] = useState<DailyReading | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [newNote, setNewNote] = useState('')
-  const [selectedPosition, setSelectedPosition] = useState<number | null>(null)
+  const [selectedText, setSelectedText] = useState('')
   const [isReading, setIsReading] = useState(false)
+  const [language, setLanguage] = useState<'he' | 'en'>('he')
 
   useEffect(() => {
     setQuote(getDailyQuote())
@@ -33,13 +34,20 @@ export default function DailyPage() {
     }
   }, [])
 
+  const handleTextSelection = () => {
+    const selection = window.getSelection()
+    if (selection && selection.toString()) {
+      setSelectedText(selection.toString())
+    }
+  }
+
   const saveNote = () => {
     if (!newNote.trim() || !reading) return
 
     const note: Note = {
       id: crypto.randomUUID(),
       text: newNote,
-      position: selectedPosition || 0,
+      selectedText: selectedText || undefined,
       timestamp: Date.now(),
     }
 
@@ -47,7 +55,7 @@ export default function DailyPage() {
     setNotes(updated)
     localStorage.setItem(`notes_${reading.id}`, JSON.stringify(updated))
     setNewNote('')
-    setSelectedPosition(null)
+    setSelectedText('')
   }
 
   const deleteNote = (id: string) => {
@@ -57,36 +65,59 @@ export default function DailyPage() {
   }
 
   const speakText = (text: string) => {
-    if (!('speechSynthesis' in window)) return
-
     if (isReading) {
       window.speechSynthesis.cancel()
       setIsReading(false)
     } else {
       const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = 'he-IL'
+      utterance.lang = language === 'he' ? 'he-IL' : 'en-US'
+      utterance.rate = 0.9
+      utterance.pitch = 1
       utterance.onend = () => setIsReading(false)
       window.speechSynthesis.speak(utterance)
       setIsReading(true)
     }
   }
 
+  const currentExcerpt = reading ? reading.excerpt[language] : ''
+
   return (
     <div className="flex h-screen" style={{ background: 'var(--paper)', maxWidth: 1200, margin: '0 auto' }}>
       {/* Main content */}
       <div className="flex-1 overflow-y-auto px-6 py-8 flex flex-col gap-6" style={{ borderRight: '1px solid var(--hairline)' }}>
         {/* Header */}
-        <div className="text-center">
-          <p className="font-overline" style={{ color: 'var(--ink-2)' }}>
-            {new Date().toLocaleDateString('he-IL', { weekday: 'long' })}
-          </p>
-          <p className="font-caption" style={{ color: 'var(--ink-3)', marginTop: 2 }}>
-            {new Date().toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-          </p>
+        <div className="flex items-center justify-between">
+          <div className="text-center flex-1">
+            <p className="font-overline" style={{ color: 'var(--ink-2)' }}>
+              {new Date().toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US', { weekday: 'long' })}
+            </p>
+            <p className="font-caption" style={{ color: 'var(--ink-3)', marginTop: 2 }}>
+              {new Date().toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </p>
+          </div>
+          <button
+            onClick={() => setLanguage(language === 'he' ? 'en' : 'he')}
+            style={{
+              background: 'var(--sienna-soft)',
+              border: 'none',
+              color: 'var(--sienna)',
+              borderRadius: '50%',
+              width: 36,
+              height: 36,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            {language === 'he' ? 'EN' : 'עברית'}
+          </button>
         </div>
 
         <h1 style={{ fontFamily: 'EB Garamond, serif', fontSize: 28, color: 'var(--ink)', textAlign: 'center' }}>
-          קריאה יומית
+          {language === 'he' ? 'קריאה יומית' : 'Daily Reading'}
         </h1>
 
         {/* Quote card */}
@@ -120,7 +151,7 @@ export default function DailyPage() {
               style={{ background: 'none', border: 'none', color: 'var(--sienna)', cursor: 'pointer', padding: '8px 0' }}
             >
               <RefreshCw size={14} />
-              ציטוט אחר
+              {language === 'he' ? 'ציטוט אחר' : 'Another quote'}
             </button>
           </div>
         )}
@@ -141,7 +172,7 @@ export default function DailyPage() {
                 </p>
               </div>
               <button
-                onClick={() => speakText(reading.excerpt)}
+                onClick={() => speakText(currentExcerpt)}
                 style={{
                   background: isReading ? 'var(--sienna)' : 'var(--sienna-soft)',
                   border: 'none',
@@ -160,23 +191,64 @@ export default function DailyPage() {
               </button>
             </div>
 
-            <p style={{
-              fontFamily: 'Frank Ruhl Libre, serif',
-              fontSize: 16,
-              lineHeight: 1.8,
-              color: 'var(--ink)',
-              whiteSpace: 'pre-wrap',
-            }}>
-              {reading.excerpt}
+            <p
+              onMouseUp={handleTextSelection}
+              style={{
+                fontFamily: 'Frank Ruhl Libre, serif',
+                fontSize: 16,
+                lineHeight: 1.8,
+                color: 'var(--ink)',
+                whiteSpace: 'pre-wrap',
+                cursor: 'text',
+                userSelect: 'text',
+              }}
+            >
+              {currentExcerpt}
             </p>
+
+            {selectedText && (
+              <div style={{
+                background: 'var(--paper-2)',
+                border: '1px solid var(--sienna)',
+                borderRadius: 8,
+                padding: 12,
+                marginTop: 8,
+              }}>
+                <p style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 6 }}>
+                  {language === 'he' ? 'טקסט שנבחר:' : 'Selected text:'}
+                </p>
+                <p style={{ fontSize: 13, color: 'var(--ink)', fontStyle: 'italic', marginBottom: 8 }}>
+                  "{selectedText}"
+                </p>
+                <button
+                  onClick={() => {
+                    setNewNote(`הערה על: "${selectedText}"`)
+                    setSelectedText('')
+                  }}
+                  style={{
+                    background: 'var(--sienna)',
+                    color: 'var(--paper)',
+                    border: 'none',
+                    borderRadius: 4,
+                    padding: '6px 12px',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {language === 'he' ? '➕ הוסף הערה' : '➕ Add note'}
+                </button>
+              </div>
+            )}
 
             {/* Note input */}
             <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--hairline)' }}>
-              <p style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 8 }}>הוסף הערה</p>
+              <p style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 8 }}>
+                {language === 'he' ? 'הוסף הערה' : 'Add a note'}
+              </p>
               <textarea
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
-                placeholder="כתוב הערה..."
+                placeholder={language === 'he' ? 'כתוב הערה...' : 'Write a note...'}
                 style={{
                   width: '100%',
                   minHeight: 60,
@@ -187,7 +259,7 @@ export default function DailyPage() {
                   fontFamily: 'Frank Ruhl Libre, serif',
                   fontSize: 14,
                   color: 'var(--ink)',
-                  direction: 'rtl',
+                  direction: language === 'he' ? 'rtl' : 'ltr',
                   resize: 'none',
                 }}
               />
@@ -210,7 +282,7 @@ export default function DailyPage() {
                 }}
               >
                 <Save size={14} />
-                שמור הערה
+                {language === 'he' ? 'שמור הערה' : 'Save note'}
               </button>
             </div>
           </div>
@@ -220,11 +292,13 @@ export default function DailyPage() {
       {/* Notes sidebar */}
       <div className="w-64 overflow-y-auto px-5 py-8 flex flex-col gap-4" style={{ borderLeft: '1px solid var(--hairline)' }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', textTransform: 'uppercase' }}>
-          הערות ({notes.length})
+          {language === 'he' ? 'הערות' : 'Notes'} ({notes.length})
         </h3>
 
         {notes.length === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--ink-3)', opacity: 0.6 }}>אין הערות עדיין</p>
+          <p style={{ fontSize: 13, color: 'var(--ink-3)', opacity: 0.6 }}>
+            {language === 'he' ? 'אין הערות עדיין' : 'No notes yet'}
+          </p>
         ) : (
           notes.map((note, idx) => (
             <div
@@ -253,6 +327,17 @@ export default function DailyPage() {
                   {idx + 1}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
+                  {note.selectedText && (
+                    <p style={{
+                      fontSize: 11,
+                      color: 'var(--sienna)',
+                      marginBottom: 6,
+                      fontStyle: 'italic',
+                      wordBreak: 'break-word',
+                    }}>
+                      "{note.selectedText}"
+                    </p>
+                  )}
                   <p style={{
                     fontSize: 13,
                     color: 'var(--ink)',
@@ -266,7 +351,7 @@ export default function DailyPage() {
                     color: 'var(--ink-3)',
                     marginTop: 4,
                   }}>
-                    {new Date(note.timestamp).toLocaleTimeString('he-IL')}
+                    {new Date(note.timestamp).toLocaleTimeString(language === 'he' ? 'he-IL' : 'en-US')}
                   </p>
                 </div>
               </div>
@@ -286,7 +371,7 @@ export default function DailyPage() {
                 }}
               >
                 <Trash2 size={12} />
-                מחק
+                {language === 'he' ? 'מחק' : 'Delete'}
               </button>
             </div>
           ))

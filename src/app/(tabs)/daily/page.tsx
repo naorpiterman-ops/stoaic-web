@@ -9,7 +9,6 @@ import type { DailyReading } from '@/lib/daily-readings'
 interface Note {
   id: string
   text: string
-  selectedText?: string
   timestamp: number
 }
 
@@ -18,7 +17,6 @@ export default function DailyPage() {
   const [reading, setReading] = useState<DailyReading | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [newNote, setNewNote] = useState('')
-  const [selectedText, setSelectedText] = useState('')
   const [isReading, setIsReading] = useState(false)
   const [language, setLanguage] = useState<'he' | 'en'>('he')
 
@@ -34,20 +32,12 @@ export default function DailyPage() {
     }
   }, [])
 
-  const handleTextSelection = () => {
-    const selection = window.getSelection()
-    if (selection && selection.toString()) {
-      setSelectedText(selection.toString())
-    }
-  }
-
   const saveNote = () => {
     if (!newNote.trim() || !reading) return
 
     const note: Note = {
       id: crypto.randomUUID(),
       text: newNote,
-      selectedText: selectedText || undefined,
       timestamp: Date.now(),
     }
 
@@ -55,7 +45,6 @@ export default function DailyPage() {
     setNotes(updated)
     localStorage.setItem(`notes_${reading.id}`, JSON.stringify(updated))
     setNewNote('')
-    setSelectedText('')
   }
 
   const deleteNote = (id: string) => {
@@ -192,53 +181,17 @@ export default function DailyPage() {
             </div>
 
             <p
-              onMouseUp={handleTextSelection}
               style={{
                 fontFamily: 'Frank Ruhl Libre, serif',
                 fontSize: 16,
                 lineHeight: 1.8,
                 color: 'var(--ink)',
                 whiteSpace: 'pre-wrap',
-                cursor: 'text',
                 userSelect: 'text',
               }}
             >
               {currentExcerpt}
             </p>
-
-            {selectedText && (
-              <div style={{
-                background: 'var(--paper-2)',
-                border: '1px solid var(--sienna)',
-                borderRadius: 8,
-                padding: 12,
-                marginTop: 8,
-              }}>
-                <p style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 6 }}>
-                  {language === 'he' ? 'טקסט שנבחר:' : 'Selected text:'}
-                </p>
-                <p style={{ fontSize: 13, color: 'var(--ink)', fontStyle: 'italic', marginBottom: 8 }}>
-                  "{selectedText}"
-                </p>
-                <button
-                  onClick={() => {
-                    setNewNote(`הערה על: "${selectedText}"`)
-                    setSelectedText('')
-                  }}
-                  style={{
-                    background: 'var(--sienna)',
-                    color: 'var(--paper)',
-                    border: 'none',
-                    borderRadius: 4,
-                    padding: '6px 12px',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {language === 'he' ? '➕ הוסף הערה' : '➕ Add note'}
-                </button>
-              </div>
-            )}
 
             {/* Note input */}
             <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--hairline)' }}>
@@ -327,17 +280,6 @@ export default function DailyPage() {
                   {idx + 1}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {note.selectedText && (
-                    <p style={{
-                      fontSize: 11,
-                      color: 'var(--sienna)',
-                      marginBottom: 6,
-                      fontStyle: 'italic',
-                      wordBreak: 'break-word',
-                    }}>
-                      "{note.selectedText}"
-                    </p>
-                  )}
                   <p style={{
                     fontSize: 13,
                     color: 'var(--ink)',

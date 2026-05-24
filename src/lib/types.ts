@@ -37,6 +37,7 @@ export interface StoicQuote {
   book?: number
   chapter?: number
   hebrewText: string
+  englishText: string
   tags: string[]
   mood: string[]
   themes: string[]

@@ -577,7 +577,7 @@ export default function ChatPage() {
               )}
             </button>
             {showCharacterMenu && (
-              <div className="absolute bottom-full right-0 mb-2 w-44 bg-paper-1 border border-hairline rounded-lg z-50" style={{
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-56 bg-paper-1 border border-hairline rounded-lg z-50" style={{
                 background: 'var(--paper-1)',
                 border: '1px solid var(--hairline)',
                 boxShadow: '0 4px 12px rgba(58,40,24,0.15)',

@@ -1,18 +1,18 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { storage } from '@/lib/storage'
+import { useLanguage } from '@/lib/language-context'
 import type { UserProfile } from '@/lib/types'
 
 export default function SettingsPage() {
+  const { t, language, setLanguage } = useLanguage()
   const [apiKey, setApiKey] = useState('')
   const [keySaved, setKeySaved] = useState(false)
-  const [language, setLanguage] = useState('he')
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [challengeText, setChallengeText] = useState('')
 
   useEffect(() => {
     setApiKey(storage.getApiKey())
-    setLanguage(storage.getLanguage())
     const p = storage.getProfile()
     setProfile(p)
     setChallengeText(p?.currentChallenges.join('\n') ?? '')
@@ -33,30 +33,30 @@ export default function SettingsPage() {
 
   return (
     <div className="px-5 py-8 flex flex-col gap-6" style={{ maxWidth: 560, margin: '0 auto' }}>
-      <h1 style={{ fontFamily: 'EB Garamond, serif', fontSize: 28, color: 'var(--ink)' }}>הגדרות</h1>
+      <h1 style={{ fontFamily: 'EB Garamond, serif', fontSize: 28, color: 'var(--ink)' }}>{t('settingsTitle')}</h1>
 
       {/* API Key */}
-      <Section title="מפתח Claude API">
+      <Section title={t('claudeAPIKey')}>
         <p className="font-body-sm" style={{ color: 'var(--ink-2)', marginBottom: 8 }}>
-          המפתח נשמר בדפדפן שלך בלבד. לא מועבר לשום שרת חיצוני.
+          {t('apiKeyInfo')}
         </p>
         <input
           type="password"
           value={apiKey}
           onChange={e => setApiKey(e.target.value)}
-          placeholder="sk-ant-..."
+          placeholder={t('apiKeyPlaceholder')}
           style={{ ...inputStyle, fontFamily: 'monospace', letterSpacing: '0.05em' }}
         />
         <button onClick={saveKey} style={{ ...primaryBtn, marginTop: 8 }}>
-          {keySaved ? 'נשמר ✓' : 'שמור'}
+          {keySaved ? t('saved2') : t('save2')}
         </button>
       </Section>
 
       {/* Language */}
-      <Section title="שפה">
+      <Section title={t('language')}>
         <div className="flex gap-2">
-          {[{ v: 'he', label: 'עברית' }, { v: 'en', label: 'English' }].map(({ v, label }) => (
-            <button key={v} onClick={() => { setLanguage(v); storage.setLanguage(v) }}
+          {[{ v: 'he' as const, label: t('hebrew') }, { v: 'en' as const, label: t('english') }].map(({ v, label }) => (
+            <button key={v} onClick={() => setLanguage(v)}
               style={{
                 flex: 1, padding: '8px 0', borderRadius: 8, border: '1px solid',
                 borderColor: language === v ? 'transparent' : 'var(--hairline-strong)',
@@ -72,25 +72,25 @@ export default function SettingsPage() {
 
       {/* Profile */}
       {profile && (
-        <Section title="הפרופיל שלי">
-          <InfoRow label="שם" value={profile.name} />
-          <InfoRow label="תחומי עבודה" value={profile.focusAreas.join(', ') || '—'} />
-          <InfoRow label="נושאים חוזרים" value={profile.recurringThemes.join(', ') || 'עוד לא זוהו'} />
+        <Section title={t('myProfile')}>
+          <InfoRow label={t('nameLabel')} value={profile.name} />
+          <InfoRow label={t('focusAreas')} value={profile.focusAreas.join(', ') || '—'} />
+          <InfoRow label={t('recurringThemes')} value={profile.recurringThemes.join(', ') || t('notDetected')} />
           <div className="mt-3">
             <label className="font-body-sm" style={{ color: 'var(--ink-1)', display: 'block', marginBottom: 6 }}>
-              אתגרים נוכחיים (שורה לכל אתגר)
+              {t('currentChallenges')}
             </label>
             <textarea value={challengeText} onChange={e => setChallengeText(e.target.value)} rows={3} style={textareaStyle} />
-            <button onClick={saveChallenges} style={{ ...secondaryBtn, marginTop: 8, fontSize: 15 }}>עדכן</button>
+            <button onClick={saveChallenges} style={{ ...secondaryBtn, marginTop: 8, fontSize: 15 }}>{t('update')}</button>
           </div>
         </Section>
       )}
 
       {/* About */}
-      <Section title="אודות">
-        <InfoRow label="גרסה" value="1.0.0" />
+      <Section title={t('about')}>
+        <InfoRow label={t('version')} value="1.0.0" />
         <p className="font-caption" style={{ color: 'var(--ink-3)', marginTop: 8 }}>
-          מלווה סטואי — כל הנתונים נשמרים מקומית בדפדפן שלך.
+          {t('aboutText')}
         </p>
       </Section>
     </div>

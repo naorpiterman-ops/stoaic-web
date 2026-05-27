@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { LanguageProvider } from '@/lib/language-context'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -25,7 +26,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen antialiased" style={{ background: 'var(--paper)', color: 'var(--ink)' }}>
-        {children}
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   )

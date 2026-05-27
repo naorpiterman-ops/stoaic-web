@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { RefreshCw, Volume2, Save, Trash2, Globe } from 'lucide-react'
+import { RefreshCw, Volume2, Save, Trash2 } from 'lucide-react'
 import { getDailyQuote } from '@/lib/quotes'
-import { getDailyReading } from '@/lib/daily-readings'
+import { getDailyReading, getRandomReading } from '@/lib/daily-readings'
+import { storage } from '@/lib/storage'
 import type { StoicQuote } from '@/lib/types'
 import type { DailyReading } from '@/lib/daily-readings'
 
@@ -21,6 +22,8 @@ export default function DailyPage() {
   const [language, setLanguage] = useState<'he' | 'en'>('he')
 
   useEffect(() => {
+    const lang = storage.getLanguage() as 'he' | 'en'
+    setLanguage(lang)
     setQuote(getDailyQuote())
     const r = getDailyReading()
     setReading(r)
@@ -71,9 +74,9 @@ export default function DailyPage() {
   const currentExcerpt = reading ? reading.excerpt[language] : ''
 
   return (
-    <div className="flex h-screen" style={{ background: 'var(--paper)', maxWidth: 1200, margin: '0 auto' }}>
+    <div className="flex h-screen flex-col lg:flex-row" style={{ background: 'var(--paper)', direction: language === 'en' ? 'ltr' : 'rtl' }}>
       {/* Main content */}
-      <div className="flex-1 overflow-y-auto px-6 py-8 flex flex-col gap-6" style={{ borderRight: '1px solid var(--hairline)' }}>
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 py-8 flex flex-col gap-6" style={{ borderRight: language === 'en' ? 'none' : '1px solid var(--hairline)', borderLeft: language === 'en' ? '1px solid var(--hairline)' : 'none' }}>
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="text-center flex-1">
@@ -85,7 +88,11 @@ export default function DailyPage() {
             </p>
           </div>
           <button
-            onClick={() => setLanguage(language === 'he' ? 'en' : 'he')}
+            onClick={() => {
+              const newLang = language === 'he' ? 'en' : 'he'
+              setLanguage(newLang)
+              storage.setLanguage(newLang)
+            }}
             style={{
               background: 'var(--sienna-soft)',
               border: 'none',
@@ -111,53 +118,105 @@ export default function DailyPage() {
 
         {/* Quote card */}
         {quote && (
-          <div className="rounded-2xl p-6 flex flex-col gap-5" style={{
-            background: 'var(--paper-1)',
-            border: '1px solid var(--hairline)',
-            boxShadow: '0 2px 8px rgba(58,40,24,0.10)',
-          }}>
-            <div className="flex gap-4">
-              <div style={{ width: 3, borderRadius: 99, background: 'var(--sienna)', flexShrink: 0 }} />
-              <p style={{
-                fontFamily: 'EB Garamond, serif',
-                fontStyle: 'italic',
-                fontSize: 22,
-                lineHeight: 1.7,
-                color: 'var(--ink)',
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2 style={{ fontFamily: 'EB Garamond, serif', fontSize: 18, color: 'var(--ink-1)', margin: 0 }}>
+                {language === 'he' ? 'ציטוט יומי' : 'Daily Quote'}
+              </h2>
+              <button
+                onClick={() => setQuote(getDailyQuote())}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--hairline-strong)',
+                  color: 'var(--ink)',
+                  borderRadius: '50%',
+                  width: 40,
+                  height: 40,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title={language === 'he' ? 'ציטוט אחר' : 'Another quote'}
+              >
+                <RefreshCw size={18} strokeWidth={1.5} />
+              </button>
+            </div>
+            <div className="rounded-2xl p-4 md:p-6 flex flex-col gap-5" style={{
+              background: 'var(--paper-1)',
+              border: '1px solid var(--hairline)',
+              boxShadow: '0 2px 8px rgba(58,40,24,0.10)',
+            }}>
+              <div className="flex gap-3 md:gap-4">
+                <div style={{ width: 3, borderRadius: 99, background: 'var(--sienna)', flexShrink: 0 }} />
+                <p style={{
+                  fontFamily: 'EB Garamond, serif',
+                  fontStyle: 'italic',
+                  fontSize: language === 'he' ? 20 : 18,
+                  lineHeight: 1.7,
+                  color: 'var(--ink)',
+                }}>
+                  {language === 'he' ? quote.hebrewText : quote.englishText}
+                </p>
+              </div>
+              <div style={{
+                borderTop: '1px solid var(--hairline)',
+                paddingTop: 16,
+                textAlign: language === 'en' ? 'left' : 'right'
               }}>
-                {quote.hebrewText}
-              </p>
+                <p style={{ color: 'var(--ink-1)', fontFamily: 'EB Garamond, serif', fontSize: 15, margin: 0, marginBottom: 4 }}>
+                  {language === 'he' ? quote.author : quote.englishAuthor || quote.author}
+                </p>
+                <p style={{ color: 'var(--ink-2)', fontSize: 13, margin: 0 }}>{language === 'he' ? quote.source : quote.englishSource || quote.source}</p>
+              </div>
             </div>
-            <div className="text-left flex flex-col gap-0.5" style={{ borderTop: '1px solid var(--hairline)', paddingTop: 16 }}>
-              <p className="font-body-sm" style={{ color: 'var(--ink-1)', fontFamily: 'EB Garamond, serif' }}>
-                {quote.author}
-              </p>
-              <p className="font-caption" style={{ color: 'var(--ink-2)' }}>{quote.source}</p>
-            </div>
-            <button
-              onClick={() => setQuote(getDailyQuote())}
-              className="flex items-center justify-center gap-2 font-body-sm"
-              style={{ background: 'none', border: 'none', color: 'var(--sienna)', cursor: 'pointer', padding: '8px 0' }}
-            >
-              <RefreshCw size={14} />
-              {language === 'he' ? 'ציטוט אחר' : 'Another quote'}
-            </button>
-          </div>
+          </>
         )}
 
         {/* Reading section */}
         {reading && (
-          <div className="rounded-2xl p-6 flex flex-col gap-4" style={{
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2 style={{ fontFamily: 'EB Garamond, serif', fontSize: 18, color: 'var(--ink-1)', margin: 0 }}>
+                {language === 'he' ? 'פרק יומי' : 'Daily Chapter'}
+              </h2>
+              <button
+                onClick={() => {
+                  const r = getRandomReading()
+                  setReading(r)
+                  if (typeof window !== 'undefined') {
+                    const saved = localStorage.getItem(`notes_${r.id}`)
+                    setNotes(saved ? JSON.parse(saved) : [])
+                  }
+                }}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--hairline-strong)',
+                  color: 'var(--ink)',
+                  borderRadius: '50%',
+                  width: 40,
+                  height: 40,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title={language === 'he' ? 'קטע אחר' : 'Another chapter'}
+              >
+                <RefreshCw size={18} strokeWidth={1.5} />
+              </button>
+            </div>
+            <div className="rounded-2xl p-6 flex flex-col gap-4" style={{
             background: 'var(--paper-1)',
             border: '1px solid var(--hairline)',
           }}>
             <div className="flex items-start justify-between">
               <div>
                 <h2 style={{ fontSize: 20, color: 'var(--ink)', fontWeight: 600, marginBottom: 4 }}>
-                  {reading.title}
+                  {language === 'he' ? reading.title : reading.englishTitle || reading.title}
                 </h2>
                 <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>
-                  {reading.author} — {reading.source}
+                  {language === 'he' ? reading.author : reading.englishAuthor || reading.author} — {language === 'he' ? reading.source : reading.englishSource || reading.source}
                 </p>
               </div>
               <button
@@ -183,7 +242,7 @@ export default function DailyPage() {
             <p
               style={{
                 fontFamily: 'Frank Ruhl Libre, serif',
-                fontSize: 16,
+                fontSize: window.innerWidth < 640 ? 14 : 16,
                 lineHeight: 1.8,
                 color: 'var(--ink)',
                 whiteSpace: 'pre-wrap',
@@ -239,11 +298,16 @@ export default function DailyPage() {
               </button>
             </div>
           </div>
+          </>
         )}
       </div>
 
       {/* Notes sidebar */}
-      <div className="w-64 overflow-y-auto px-5 py-8 flex flex-col gap-4" style={{ borderLeft: '1px solid var(--hairline)' }}>
+      <div className="w-full lg:w-64 overflow-y-auto px-4 lg:px-5 py-8 flex flex-col gap-4" style={{
+        borderTop: '1px solid var(--hairline)',
+        borderLeft: language === 'en' ? '1px solid var(--hairline)' : 'none',
+        borderRight: language === 'he' ? '1px solid var(--hairline)' : 'none'
+      }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', textTransform: 'uppercase' }}>
           {language === 'he' ? 'הערות' : 'Notes'} ({notes.length})
         </h3>

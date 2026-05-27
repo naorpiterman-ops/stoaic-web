@@ -12,6 +12,7 @@ export interface Conversation {
   themes?: string[]
   startedAt: number
   endedAt?: number
+  character: string
 }
 
 export interface UserProfile {
@@ -34,6 +35,8 @@ export interface StoicQuote {
   id: string
   author: string
   source: string
+  englishAuthor?: string
+  englishSource?: string
   book?: number
   chapter?: number
   hebrewText: string

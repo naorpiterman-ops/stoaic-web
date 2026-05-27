@@ -129,7 +129,7 @@ export default function ChatPage() {
       if (saved.length > 0) {
         // Open the most recent conversation
         setCurrentConversationId(saved[0].id)
-        setSelectedCharacter(saved[0].character)
+        setSelectedCharacter(saved[0].character || 'general')
       }
     }
   }, [])

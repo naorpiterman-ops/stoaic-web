@@ -436,7 +436,7 @@ export default function ChatPage() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-            placeholder="כתוב משהו..."
+            placeholder="כתוב משהו כאן..."
             rows={1}
             style={{
               flex: 1,

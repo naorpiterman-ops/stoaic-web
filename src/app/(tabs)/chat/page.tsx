@@ -1,10 +1,19 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Archive } from 'lucide-react'
+import { Send, Archive, Plus, Menu, X, User } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { storage } from '@/lib/storage'
-import { buildSystemPrompt } from '@/lib/memory'
-import type { Message } from '@/lib/types'
+import { characters } from '@/lib/characters'
+import type { Message, Conversation } from '@/lib/types'
+
+const iconBtn: React.CSSProperties = {
+  width: 36, height: 36,
+  borderRadius: '50%',
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+}
 
 function TypingIndicator() {
   return (
@@ -63,32 +72,72 @@ function Bubble({ msg }: { msg: Message }) {
   )
 }
 
+function MemSection({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="p-3 rounded-xl" style={{ background: 'var(--paper-2)', border: '1px solid var(--hairline)' }}>
+      <p className="font-overline mb-2" style={{ color: 'var(--ink-2)' }}>{title}</p>
+      {items.length
+        ? items.map(i => <p key={i} className="font-body-sm" style={{ color: 'var(--ink)' }}>• {i}</p>)
+        : <p className="font-body-sm" style={{ color: 'var(--ink-3)' }}>אין מידע עדיין</p>
+      }
+    </div>
+  )
+}
+
+function MemoryDrawer({ onClose }: { onClose: () => void }) {
+  const profile = storage.getProfile()
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: 'rgba(58,40,24,0.4)' }} onClick={onClose}>
+      <div className="rounded-t-3xl p-6 flex flex-col gap-5" style={{ background: 'var(--paper-1)', maxHeight: '75vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div className="mx-auto w-9 h-1 rounded-full" style={{ background: 'var(--paper-4)' }} />
+        <h2 style={{ fontFamily: 'EB Garamond, serif', fontSize: 24, color: 'var(--ink)' }}>זיכרון</h2>
+        {profile ? (
+          <>
+            <MemSection title="תחומי עבודה" items={profile.focusAreas} />
+            <MemSection title="נושאים חוזרים" items={profile.recurringThemes} />
+            <MemSection title="אתגרים נוכחיים" items={profile.currentChallenges} />
+          </>
+        ) : <p style={{ color: 'var(--ink-3)' }}>אין פרופיל עדיין</p>}
+      </div>
+    </div>
+  )
+}
+
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([])
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
+  const [selectedCharacter, setSelectedCharacter] = useState<string>('general')
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [streamText, setStreamText] = useState('')
   const [showMemory, setShowMemory] = useState(false)
+  const [showSidebar, setShowSidebar] = useState(false)
+  const [showCharacterMenu, setShowCharacterMenu] = useState(false)
   const [error, setError] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Load messages from localStorage on mount
+  const currentConversation = conversations.find(c => c.id === currentConversationId)
+  const messages = currentConversation?.messages ?? []
+
+  // Load conversations from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('chat_messages')
-      if (saved) {
-        try {
-          setMessages(JSON.parse(saved))
-        } catch { /* skip */ }
+      const saved = storage.getConversations()
+      setConversations(saved)
+
+      if (saved.length > 0) {
+        // Open the most recent conversation
+        setCurrentConversationId(saved[0].id)
+        setSelectedCharacter(saved[0].character)
       }
     }
   }, [])
 
-  // Save messages to localStorage whenever they change
+  // Save current conversation whenever it changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && messages.length > 0) {
-      localStorage.setItem('chat_messages', JSON.stringify(messages))
+    if (currentConversation) {
+      storage.saveConversation(currentConversation)
     }
   }, [messages])
 
@@ -101,19 +150,48 @@ export default function ChatPage() {
     if (!text || streaming) return
 
     setError('')
+
+    // Create new conversation if needed
+    let convId = currentConversationId
+    let currentChar = selectedCharacter
+
+    if (!convId) {
+      const newId = crypto.randomUUID()
+      const newConv: Conversation = {
+        id: newId,
+        messages: [],
+        startedAt: Date.now(),
+        character: currentChar,
+      }
+      setConversations(prev => [newConv, ...prev])
+      setCurrentConversationId(newId)
+      convId = newId
+    }
+
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: text, timestamp: Date.now() }
     const next = [...messages, userMsg]
-    setMessages(next)
+
+    // Update conversation with new messages
+    setConversations(prev =>
+      prev.map(c =>
+        c.id === convId ? { ...c, messages: next } : c
+      )
+    )
+
     setInput('')
     setStreaming(true)
     setStreamText('')
 
     try {
+      const character = characters[currentChar]
+      const profile = storage.getProfile()
+      const systemPrompt = character.getSystemPrompt(profile?.name)
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          systemPrompt: buildSystemPrompt(),
+          systemPrompt,
           messages: next.map(m => ({ role: m.role, content: m.content })),
         }),
       })
@@ -159,14 +237,21 @@ export default function ChatPage() {
       }
 
       const assistantMsg: Message = { id: crypto.randomUUID(), role: 'assistant', content: full, timestamp: Date.now() }
-      setMessages(prev => [...prev, assistantMsg])
+      const updated = [...next, assistantMsg]
+
+      setConversations(prev =>
+        prev.map(c =>
+          c.id === convId ? { ...c, messages: updated } : c
+        )
+      )
+
       setStreamText('')
     } catch (e) {
       setError('שגיאת חיבור')
     } finally {
       setStreaming(false)
     }
-  }, [input, messages, streaming])
+  }, [input, messages, streaming, currentConversationId, selectedCharacter])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -179,147 +264,287 @@ export default function ChatPage() {
   const profile = typeof window !== 'undefined' ? storage.getProfile() : null
 
   return (
-    <div className="flex flex-col h-screen" style={{ background: 'var(--paper)', maxWidth: 640, margin: '0 auto' }}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{
-        borderBottom: '1px solid var(--hairline)',
-        background: 'var(--paper)',
-        position: 'sticky', top: 0, zIndex: 10,
-      }}>
-        <button onClick={() => setShowMemory(true)} style={iconBtn}>
-          <Archive size={20} color="var(--ink-2)" strokeWidth={1.5} />
-        </button>
-        <div className="text-center">
-          <div style={{ fontFamily: 'EB Garamond, serif', fontSize: 17, color: 'var(--ink)' }}>
-            מלווה סטואי
+    <div className="flex h-screen" style={{ background: 'var(--paper)' }}>
+      {/* Sidebar */}
+      {showSidebar && (
+        <div className="w-64 flex flex-col border-r border-hairline overflow-hidden" style={{
+          background: 'var(--paper-1)',
+          borderRight: '1px solid var(--hairline)',
+        }}>
+          <div className="p-4 border-b border-hairline flex flex-col gap-3">
+            <div className="relative">
+              <button
+                onClick={() => setShowCharacterMenu(!showCharacterMenu)}
+                className="w-full px-3 py-2 rounded-lg font-caption text-right"
+                style={{
+                  background: 'var(--sienna-soft)',
+                  color: 'var(--sienna)',
+                  border: '1px solid var(--sienna)',
+                  cursor: 'pointer',
+                }}
+              >
+                {characters[selectedCharacter].hebrewName}
+              </button>
+              {showCharacterMenu && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-paper-1 border border-hairline rounded-lg z-50 shadow-lg" style={{
+                  background: 'var(--paper-1)',
+                  border: '1px solid var(--hairline)',
+                }}>
+                  {Object.values(characters).map(char => (
+                    <button
+                      key={char.id}
+                      onClick={() => {
+                        setSelectedCharacter(char.id)
+                        setShowCharacterMenu(false)
+                      }}
+                      className="w-full text-right px-3 py-2 font-caption"
+                      style={{
+                        background: selectedCharacter === char.id ? 'var(--paper-2)' : 'transparent',
+                        color: 'var(--ink)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid var(--hairline)',
+                      }}
+                    >
+                      {char.hebrewName}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                setCurrentConversationId(null)
+                setSelectedCharacter('general')
+                setShowCharacterMenu(false)
+                setShowSidebar(false)
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg font-caption"
+              style={{
+                background: 'var(--sienna)',
+                color: 'var(--paper)',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <Plus size={16} />
+              שיחה חדשה
+            </button>
           </div>
-          <div style={{ fontFamily: 'EB Garamond, serif', fontStyle: 'italic', fontSize: 11, color: 'var(--sienna)' }}>
-            ἀρετή
+
+          <div className="flex-1 overflow-y-auto">
+            {conversations.length === 0 ? (
+              <p className="p-4 text-center font-caption" style={{ color: 'var(--ink-3)' }}>
+                אין שיחות עדיין
+              </p>
+            ) : (
+              conversations.map(conv => {
+                const firstUserMsg = conv.messages.find(m => m.role === 'user')?.content
+                const preview = firstUserMsg ? (firstUserMsg.length > 50 ? firstUserMsg.substring(0, 50) + '...' : firstUserMsg) : 'ללא הודעות'
+                return (
+                  <button
+                    key={conv.id}
+                    onClick={() => {
+                      setCurrentConversationId(conv.id)
+                      setSelectedCharacter(conv.character)
+                      setShowSidebar(false)
+                    }}
+                    className="w-full text-right px-4 py-3 border-b"
+                    style={{
+                      background: conv.id === currentConversationId ? 'var(--paper-2)' : 'transparent',
+                      borderBottom: '1px solid var(--hairline)',
+                      cursor: 'pointer',
+                      transition: 'background 0.16s',
+                    }}
+                    onMouseEnter={e => {
+                      if (conv.id !== currentConversationId) {
+                        (e.currentTarget as HTMLElement).style.background = 'var(--paper-2)'
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (conv.id !== currentConversationId) {
+                        (e.currentTarget as HTMLElement).style.background = 'transparent'
+                      }
+                    }}
+                  >
+                    <p className="font-caption" style={{ color: 'var(--ink-2)', marginBottom: 4 }}>
+                      {characters[conv.character].hebrewName}
+                    </p>
+                    <p className="font-body-sm" style={{ color: 'var(--ink)', lineHeight: 1.4 }}>
+                      {preview}
+                    </p>
+                    <p className="font-overline text-xs mt-2" style={{ color: 'var(--ink-3)' }}>
+                      {new Date(conv.startedAt).toLocaleDateString('he-IL')}
+                    </p>
+                  </button>
+                )
+              })
+            )}
           </div>
         </div>
-        <div style={{ width: 36 }} />
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-center" style={{ opacity: 0.6 }}>
-            <p style={{ fontFamily: 'EB Garamond, serif', fontStyle: 'italic', fontSize: 19, color: 'var(--ink-2)', lineHeight: 1.7 }}>
-              {profile ? `שלום, ${profile.name}` : 'שלום'}
-            </p>
-            <p className="font-body-sm" style={{ color: 'var(--ink-3)' }}>מה עולה לך היום?</p>
-          </div>
-        )}
-        {messages.map(msg => <Bubble key={msg.id} msg={msg} />)}
-        {streaming && (
-          <div className="flex justify-end mb-2">
-            {streamText
-              ? <Bubble msg={{ id: 'stream', role: 'assistant', content: streamText, timestamp: Date.now() }} />
-              : <TypingIndicator />
-            }
-          </div>
-        )}
-        {error && <p className="text-center font-caption mt-2" style={{ color: 'var(--danger)' }}>{error}</p>}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Composer */}
-      <div className="shrink-0 px-3 py-3 flex gap-2 items-end" style={{
-        borderTop: '1px solid var(--hairline)',
-        background: 'var(--paper)',
-        paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))',
-      }}>
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-          placeholder="כתוב משהו..."
-          rows={1}
-          style={{
-            flex: 1,
-            resize: 'none',
-            background: 'var(--paper-1)',
-            border: '1px solid var(--hairline)',
-            borderRadius: 24,
-            padding: '10px 16px',
-            fontSize: 17,
-            fontFamily: 'Frank Ruhl Libre, serif',
-            color: 'var(--ink)',
-            outline: 'none',
-            direction: 'rtl',
-            overflowY: 'hidden',
-          }}
-        />
-        <button
-          onClick={send}
-          disabled={!input.trim() || streaming}
-          style={{
-            width: 40, height: 40,
-            borderRadius: '50%',
-            border: 'none',
-            background: input.trim() && !streaming ? 'var(--sienna)' : 'var(--sienna-soft)',
-            cursor: input.trim() && !streaming ? 'pointer' : 'default',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-            transition: 'background 0.16s',
-          }}
-        >
-          <Send size={16} color="var(--paper)" strokeWidth={2} />
-        </button>
-      </div>
-
-      {/* Memory drawer */}
-      {showMemory && (
-        <MemoryDrawer onClose={() => setShowMemory(false)} />
       )}
 
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 0.3; transform: translateY(0); }
-          50% { opacity: 1; transform: translateY(-2px); }
-        }
-      `}</style>
-    </div>
-  )
-}
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col h-screen" style={{ background: 'var(--paper)' }}>
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{
+          borderBottom: '1px solid var(--hairline)',
+          background: 'var(--paper)',
+          position: 'sticky', top: 0, zIndex: 10,
+        }}>
+          <button onClick={() => setShowSidebar(!showSidebar)} style={iconBtn}>
+            {showSidebar ? <X size={20} color="var(--ink-2)" strokeWidth={1.5} /> : <Menu size={20} color="var(--ink-2)" strokeWidth={1.5} />}
+          </button>
 
-function MemoryDrawer({ onClose }: { onClose: () => void }) {
-  const profile = storage.getProfile()
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: 'rgba(58,40,24,0.4)' }} onClick={onClose}>
-      <div className="rounded-t-3xl p-6 flex flex-col gap-5" style={{ background: 'var(--paper-1)', maxHeight: '75vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-        <div className="mx-auto w-9 h-1 rounded-full" style={{ background: 'var(--paper-4)' }} />
-        <h2 style={{ fontFamily: 'EB Garamond, serif', fontSize: 24, color: 'var(--ink)' }}>זיכרון</h2>
-        {profile ? (
-          <>
-            <MemSection title="תחומי עבודה" items={profile.focusAreas} />
-            <MemSection title="נושאים חוזרים" items={profile.recurringThemes} />
-            <MemSection title="אתגרים נוכחיים" items={profile.currentChallenges} />
-          </>
-        ) : <p style={{ color: 'var(--ink-3)' }}>אין פרופיל עדיין</p>}
+
+          <button onClick={() => setShowMemory(true)} style={iconBtn}>
+            <Archive size={20} color="var(--ink-2)" strokeWidth={1.5} />
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-center" style={{ opacity: 0.6 }}>
+              <p style={{ fontFamily: 'EB Garamond, serif', fontStyle: 'italic', fontSize: 19, color: 'var(--ink-2)', lineHeight: 1.7 }}>
+                {profile ? `שלום, ${profile.name}` : 'שלום'}
+              </p>
+              <p className="font-body-sm" style={{ color: 'var(--ink-3)' }}>מה עולה לך היום?</p>
+            </div>
+          )}
+          {messages.map(msg => <Bubble key={msg.id} msg={msg} />)}
+          {streaming && (
+            <div className="flex justify-end mb-2">
+              {streamText
+                ? <Bubble msg={{ id: 'stream', role: 'assistant', content: streamText, timestamp: Date.now() }} />
+                : <TypingIndicator />
+              }
+            </div>
+          )}
+          {error && <p className="text-center font-caption mt-2" style={{ color: 'var(--danger)' }}>{error}</p>}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Composer */}
+        <div className="shrink-0 px-3 py-3 flex gap-2 items-end" style={{
+          borderTop: '1px solid var(--hairline)',
+          background: 'var(--paper)',
+          paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))',
+        }}>
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+            placeholder="כתוב משהו..."
+            rows={1}
+            style={{
+              flex: 1,
+              resize: 'none',
+              background: 'var(--paper-1)',
+              border: '1px solid var(--hairline)',
+              borderRadius: 24,
+              padding: '10px 16px',
+              fontSize: 17,
+              fontFamily: 'Frank Ruhl Libre, serif',
+              color: 'var(--ink)',
+              outline: 'none',
+              direction: 'rtl',
+              overflowY: 'hidden',
+            }}
+          />
+
+          {/* Character selector - shows icon by default, character name when selected */}
+          <div className="relative">
+            <button
+              onClick={() => setShowCharacterMenu(!showCharacterMenu)}
+              style={{
+                width: 40, height: 40,
+                borderRadius: '50%',
+                border: 'none',
+                background: 'var(--sienna)',
+                color: 'var(--paper)',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+                transition: 'background 0.16s',
+                position: 'relative',
+                fontSize: 12,
+                fontWeight: 600,
+                fontFamily: 'Inter, sans-serif',
+                overflow: 'hidden',
+              }}
+              title={characters[selectedCharacter]?.hebrewName || 'בחר מלווה'}
+            >
+              {selectedCharacter === 'general' ? (
+                <User size={16} color="var(--paper)" strokeWidth={2} />
+              ) : (
+                <span style={{ textAlign: 'center', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingLeft: 2, paddingRight: 2 }}>
+                  {characters[selectedCharacter]?.hebrewName.substring(0, 2)}
+                </span>
+              )}
+            </button>
+            {showCharacterMenu && (
+              <div className="absolute bottom-full right-0 mb-2 w-44 bg-paper-1 border border-hairline rounded-lg z-50" style={{
+                background: 'var(--paper-1)',
+                border: '1px solid var(--hairline)',
+                boxShadow: '0 4px 12px rgba(58,40,24,0.15)',
+              }}>
+                {Object.values(characters).map((char, idx) => (
+                  <button
+                    key={char.id}
+                    onClick={() => {
+                      setSelectedCharacter(char.id)
+                      setShowCharacterMenu(false)
+                    }}
+                    className="w-full text-right px-4 py-3 font-caption"
+                    style={{
+                      background: selectedCharacter === char.id ? 'var(--sienna)' : 'transparent',
+                      color: selectedCharacter === char.id ? 'var(--paper)' : 'var(--ink)',
+                      border: 'none',
+                      borderBottom: idx < Object.values(characters).length - 1 ? '1px solid var(--hairline)' : 'none',
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      transition: 'all 0.16s',
+                    }}
+                  >
+                    {char.hebrewName}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={send}
+            disabled={!input.trim() || streaming}
+            style={{
+              width: 40, height: 40,
+              borderRadius: '50%',
+              border: 'none',
+              background: input.trim() && !streaming ? 'var(--sienna)' : 'var(--sienna-soft)',
+              cursor: input.trim() && !streaming ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'background 0.16s',
+            }}
+          >
+            <Send size={16} color="var(--paper)" strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Memory drawer */}
+        {showMemory && (
+          <MemoryDrawer onClose={() => setShowMemory(false)} />
+        )}
+
+        <style>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(-2px); }
+          }
+        `}</style>
       </div>
     </div>
   )
-}
-
-function MemSection({ title, items }: { title: string; items: string[] }) {
-  return (
-    <div className="p-3 rounded-xl" style={{ background: 'var(--paper-2)', border: '1px solid var(--hairline)' }}>
-      <p className="font-overline mb-2" style={{ color: 'var(--ink-2)' }}>{title}</p>
-      {items.length
-        ? items.map(i => <p key={i} className="font-body-sm" style={{ color: 'var(--ink)' }}>• {i}</p>)
-        : <p className="font-body-sm" style={{ color: 'var(--ink-3)' }}>אין מידע עדיין</p>
-      }
-    </div>
-  )
-}
-
-const iconBtn: React.CSSProperties = {
-  width: 36, height: 36,
-  borderRadius: '50%',
-  border: 'none',
-  background: 'transparent',
-  cursor: 'pointer',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
 }

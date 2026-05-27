@@ -486,48 +486,6 @@ export default function ChatPage() {
             {showSidebar ? <X size={18} color="var(--ink-2)" strokeWidth={1.5} /> : <Menu size={18} color="var(--ink-2)" strokeWidth={1.5} />}
           </button>
 
-          {/* Character selector - visible on mobile */}
-          <div className="md:hidden relative">
-            <button
-              onClick={() => setShowCharacterMenu(!showCharacterMenu)}
-              className="px-2 py-1 rounded-lg text-xs font-caption"
-              style={{
-                background: 'var(--sienna-soft)',
-                color: 'var(--sienna)',
-                border: '1px solid var(--sienna)',
-                cursor: 'pointer',
-              }}
-            >
-              {characters[selectedCharacter].hebrewName}
-            </button>
-            {showCharacterMenu && (
-              <div className="absolute top-full right-0 mt-1 bg-paper-1 border border-hairline rounded-lg z-50 shadow-lg max-h-48 overflow-y-auto" style={{
-                background: 'var(--paper-1)',
-                border: '1px solid var(--hairline)',
-                minWidth: 150,
-              }}>
-                {Object.values(characters).map(char => (
-                  <button
-                    key={char.id}
-                    onClick={() => {
-                      setSelectedCharacter(char.id)
-                      setShowCharacterMenu(false)
-                    }}
-                    className="w-full text-right px-3 py-2 font-caption text-xs"
-                    style={{
-                      background: selectedCharacter === char.id ? 'var(--paper-2)' : 'transparent',
-                      color: 'var(--ink)',
-                      border: 'none',
-                      cursor: 'pointer',
-                      borderBottom: '1px solid var(--hairline)',
-                    }}
-                  >
-                    {char.hebrewName}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
           <div style={{ flex: 1 }} />
 
@@ -589,7 +547,7 @@ export default function ChatPage() {
           />
 
           {/* Character selector - shows icon by default, character name when selected */}
-          <div className="relative hidden sm:block">
+          <div className="relative">
             <button
               onClick={() => setShowCharacterMenu(!showCharacterMenu)}
               style={{

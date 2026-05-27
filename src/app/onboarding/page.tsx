@@ -1,166 +1,188 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { storage } from '@/lib/storage'
 
-const FOCUS_OPTIONS = ['כעס', 'חרדה', 'עבודה', 'יחסים', 'אובדן', 'זמן', 'מוות', 'תחושת שליטה']
-
 export default function OnboardingPage() {
-  const router = useRouter()
-  const [step, setStep] = useState(0)
+  const [isSignup, setIsSignup] = useState(true)
   const [name, setName] = useState('')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState('')
+  const router = useRouter()
 
-  function toggle(area: string) {
-    setSelected(prev => {
-      const next = new Set(prev)
-      next.has(area) ? next.delete(area) : next.add(area)
-      return next
-    })
-  }
+  useEffect(() => {
+    // Check if password already exists
+    const hash = localStorage.getItem('stoic_password_hash')
+    setIsSignup(!hash)
+  }, [])
 
-  function finish() {
-    storage.setProfile({
+  function handleSignup() {
+    setError('')
+
+    if (!name.trim()) {
+      setError('אנא הכנס שם')
+      return
+    }
+
+    if (!password.trim()) {
+      setError('אנא הגדר סיסמה')
+      return
+    }
+
+    if (password.length < 6) {
+      setError('הסיסמה צריכה להיות לפחות 6 תווים')
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError('הסיסמאות לא תואמות')
+      return
+    }
+
+    // Save profile
+    const profile = {
       name: name.trim(),
-      focusAreas: [...selected],
+      focusAreas: [],
       recurringThemes: [],
       currentChallenges: [],
       createdAt: Date.now(),
-    })
+    }
+    storage.setProfile(profile)
+
+    // Save password
+    const hash = btoa(password)
+    localStorage.setItem('stoic_password_hash', hash)
+
+    // Mark as onboarded
     storage.setOnboarded()
-    router.replace('/chat')
+
+    router.push('/chat')
+  }
+
+  function handleLogin() {
+    setError('')
+
+    if (!password.trim()) {
+      setError('אנא הכנס את הסיסמה')
+      return
+    }
+
+    const hash = localStorage.getItem('stoic_password_hash')
+    const inputHash = btoa(password)
+
+    if (hash === inputHash) {
+      storage.setOnboarded()
+      router.push('/chat')
+    } else {
+      setError('סיסמה שגויה')
+      setPassword('')
+    }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--paper-2)',
+    border: '1px solid var(--hairline)',
+    borderRadius: 8,
+    padding: '12px 16px',
+    fontSize: 16,
+    fontFamily: 'Frank Ruhl Libre, serif',
+    color: 'var(--ink)',
+    outline: 'none',
+    direction: 'rtl',
+  }
+
+  const buttonStyle: React.CSSProperties = {
+    background: 'var(--sienna)',
+    color: 'var(--paper)',
+    border: 'none',
+    borderRadius: 9999,
+    padding: '14px 28px',
+    fontSize: 17,
+    fontFamily: 'Frank Ruhl Libre, serif',
+    cursor: 'pointer',
+    fontWeight: 600,
+    marginTop: 8,
+    width: '100%',
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-between px-6 py-12"
-      style={{ background: 'var(--paper)', maxWidth: 480, margin: '0 auto' }}>
-
-      {/* Step 0 — Welcome */}
-      {step === 0 && (
-        <div className="flex flex-col items-center gap-8 flex-1 justify-center text-center">
-          <div className="w-32 h-32 rounded-full flex items-center justify-center"
-            style={{ background: 'var(--paper-2)' }}>
-            <span style={{ fontSize: 64, color: 'var(--ink-3)' }}>𓂀</span>
-          </div>
-          <div>
-            <h1 className="font-h1" style={{ fontFamily: 'EB Garamond, serif', color: 'var(--ink)' }}>
-              מלווה סטואי
-            </h1>
-            <p style={{ fontFamily: 'EB Garamond, serif', fontStyle: 'italic', color: 'var(--sienna)', fontSize: 16 }}>
-              ἀρετή — מצוינות אנושית
-            </p>
-          </div>
-          <p className="font-body" style={{ color: 'var(--ink-2)', lineHeight: 1.7 }}>
-            האפליקציה הזו היא המלווה הסטואי האישי שלך — חכם, חם, וסוקרטי. היא לומדת אותך לאורך זמן.
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8" style={{ background: 'var(--paper)' }}>
+      <div style={{ maxWidth: 400, width: '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="text-center">
+          <h1 style={{ fontFamily: 'EB Garamond, serif', fontSize: 44, color: 'var(--ink)', marginBottom: 8 }}>
+            ἀρετή
+          </h1>
+          <p className="font-body" style={{ color: 'var(--ink-2)' }}>
+            {isSignup ? 'רישום' : 'התחברות'}
           </p>
-          <button onClick={() => setStep(1)} style={primaryBtn}>
-            בוא נתחיל
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {isSignup && (
+            <div className="flex flex-col gap-2">
+              <label className="font-body-sm" style={{ color: 'var(--ink-1)' }}>שם</label>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="הכנס את שמך"
+                style={inputStyle}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleSignup()
+                }}
+              />
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <label className="font-body-sm" style={{ color: 'var(--ink-1)' }}>סיסמה</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder={isSignup ? 'לפחות 6 תווים' : 'הכנס את הסיסמה'}
+              style={inputStyle}
+              onKeyDown={e => {
+                if (e.key === 'Enter') isSignup ? handleSignup() : handleLogin()
+              }}
+            />
+          </div>
+
+          {isSignup && (
+            <div className="flex flex-col gap-2">
+              <label className="font-body-sm" style={{ color: 'var(--ink-1)' }}>אימות סיסמה</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="חזור על הסיסמה"
+                style={inputStyle}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleSignup()
+                }}
+              />
+            </div>
+          )}
+
+          {error && (
+            <p className="font-body-sm text-center" style={{ color: 'var(--danger)' }}>
+              {error}
+            </p>
+          )}
+
+          <button
+            onClick={isSignup ? handleSignup : handleLogin}
+            style={buttonStyle}
+          >
+            {isSignup ? 'יצירת חשבון' : 'התחברות'}
           </button>
         </div>
-      )}
 
-      {/* Step 1 — Name */}
-      {step === 1 && (
-        <div className="flex flex-col gap-8 flex-1 justify-center w-full">
-          <h2 className="font-h1 text-center" style={{ fontFamily: 'EB Garamond, serif', color: 'var(--ink)' }}>
-            מה שמך?
-          </h2>
-          <input
-            autoFocus
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="שם פרטי"
-            className="w-full text-center font-body"
-            style={inputStyle}
-            onKeyDown={e => e.key === 'Enter' && name.trim() && setStep(2)}
-          />
-          <div className="flex justify-between">
-            <button onClick={() => setStep(0)} style={secondaryBtn}>חזרה</button>
-            <button onClick={() => setStep(2)} disabled={!name.trim()} style={primaryBtn}>הבא</button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 2 — Focus areas */}
-      {step === 2 && (
-        <div className="flex flex-col gap-6 flex-1 justify-center w-full">
-          <h2 className="font-h2 text-center" style={{ fontFamily: 'EB Garamond, serif', color: 'var(--ink)' }}>
-            על מה אתה עובד?
-          </h2>
-          <p className="text-center font-body-sm" style={{ color: 'var(--ink-2)' }}>
-            בחר את התחומים שחשובים לך
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {FOCUS_OPTIONS.map(area => (
-              <button key={area} onClick={() => toggle(area)}
-                className="py-2 px-4 font-body-sm transition-all"
-                style={{
-                  borderRadius: 8,
-                  border: `1px solid ${selected.has(area) ? 'transparent' : 'var(--hairline-strong)'}`,
-                  background: selected.has(area) ? 'var(--sienna)' : 'var(--paper-2)',
-                  color: selected.has(area) ? 'var(--paper)' : 'var(--ink)',
-                }}>
-                {area}
-              </button>
-            ))}
-          </div>
-          <div className="flex justify-between">
-            <button onClick={() => setStep(1)} style={secondaryBtn}>חזרה</button>
-            <button onClick={() => setStep(3)} style={primaryBtn}>הבא</button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3 — Complete */}
-      {step === 3 && (
-        <div className="flex flex-col items-center gap-8 flex-1 justify-center text-center">
-          <div style={{ fontSize: 64 }}>🌿</div>
-          <h2 className="font-h1" style={{ fontFamily: 'EB Garamond, serif', color: 'var(--ink)' }}>
-            ברוך הבא, {name}
-          </h2>
-          <blockquote style={{ borderRight: '3px solid var(--sienna)', paddingRight: 16, textAlign: 'right' }}>
-            <p className="font-body" style={{ fontStyle: 'italic', color: 'var(--ink)', lineHeight: 1.8 }}>
-              לא האירועים מטרידים אותנו, אלא הדעות שלנו על האירועים.
-            </p>
-            <cite className="font-caption" style={{ color: 'var(--sienna)' }}>— אפיקטטוס</cite>
-          </blockquote>
-          <button onClick={finish} style={primaryBtn}>להתחיל</button>
-        </div>
-      )}
+        <p className="text-center font-caption" style={{ color: 'var(--ink-3)', lineHeight: 1.6 }}>
+          המידע שלך מאוחסן בבטחה בדפדפן שלך בלבד. לא משודר לשום שרת.
+        </p>
+      </div>
     </div>
   )
-}
-
-const primaryBtn: React.CSSProperties = {
-  background: 'var(--sienna)',
-  color: 'var(--paper)',
-  border: 'none',
-  borderRadius: 9999,
-  padding: '10px 28px',
-  fontSize: 17,
-  fontFamily: 'Frank Ruhl Libre, serif',
-  cursor: 'pointer',
-}
-
-const secondaryBtn: React.CSSProperties = {
-  background: 'transparent',
-  color: 'var(--ink)',
-  border: '1px solid var(--hairline-strong)',
-  borderRadius: 9999,
-  padding: '10px 28px',
-  fontSize: 17,
-  fontFamily: 'Frank Ruhl Libre, serif',
-  cursor: 'pointer',
-}
-
-const inputStyle: React.CSSProperties = {
-  background: 'var(--paper-2)',
-  border: '1px solid var(--hairline)',
-  borderRadius: 8,
-  padding: '12px 16px',
-  fontSize: 17,
-  fontFamily: 'Frank Ruhl Libre, serif',
-  color: 'var(--ink)',
-  outline: 'none',
-  direction: 'rtl',
 }

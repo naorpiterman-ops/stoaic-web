@@ -1,25 +1,24 @@
 'use client'
 import { useState } from 'react'
-import { Eye, Sun, Moon, PenLine, ChevronLeft } from 'lucide-react'
-import ViewFromAbove from './ViewFromAbove'
-import MorningPrep from './MorningPrep'
+import { Moon, PenLine, Sparkles, ChevronLeft } from 'lucide-react'
 import EveningReview from './EveningReview'
+import EveningReviewHistory from './EveningReviewHistory'
 import FreeWriting from './FreeWriting'
+import WeeklyChallenge from './WeeklyChallenge'
 
 const exercises = [
-  { id: 'view_from_above', title: 'מבט מעל', subtitle: 'תרגיל ויזואליזציה סטואי', Icon: Eye },
-  { id: 'morning_prep',    title: 'תרגול בוקר', subtitle: 'הכנה לפי אפיקטטוס', Icon: Sun },
+  { id: 'free_writing',    title: 'כתיבה חופשית', subtitle: 'כתיבה דרך עדשה סטואית', Icon: PenLine },
   { id: 'evening_review',  title: 'סיכום יום', subtitle: 'חשבון נפש בסגנון מרקוס', Icon: Moon },
-  { id: 'free_writing',    title: 'מדיטציית כתיבה', subtitle: 'כתיבה חופשית דרך עדשה סטואית', Icon: PenLine },
+  { id: 'weekly_challenge', title: 'אתגר שבועי', subtitle: 'אתגר סטואי חדש כל שבוע', Icon: Sparkles },
 ]
 
 export default function ExercisesPage() {
   const [active, setActive] = useState<string | null>(null)
 
-  if (active === 'view_from_above') return <ViewFromAbove onBack={() => setActive(null)} />
-  if (active === 'morning_prep')    return <MorningPrep onBack={() => setActive(null)} />
-  if (active === 'evening_review')  return <EveningReview onBack={() => setActive(null)} />
-  if (active === 'free_writing')    return <FreeWriting onBack={() => setActive(null)} />
+  if (active === 'evening_review')      return <EveningReview onBack={() => setActive(null)} onShowHistory={() => setActive('evening_review_history')} />
+  if (active === 'evening_review_history') return <EveningReviewHistory onBack={() => setActive('evening_review')} />
+  if (active === 'free_writing')        return <FreeWriting onBack={() => setActive(null)} />
+  if (active === 'weekly_challenge')    return <WeeklyChallenge onBack={() => setActive(null)} />
 
   return (
     <div className="px-5 py-8 flex flex-col gap-4" style={{ maxWidth: 600, margin: '0 auto' }}>

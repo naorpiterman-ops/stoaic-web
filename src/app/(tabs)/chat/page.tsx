@@ -37,9 +37,9 @@ function TypingIndicator() {
 function Bubble({ msg }: { msg: Message }) {
   const isUser = msg.role === 'user'
   return (
-    <div className={`flex ${isUser ? 'justify-start' : 'justify-end'} mb-2`}>
+    <div className={`flex ${isUser ? 'justify-start' : 'justify-end'} mb-2 px-3`}>
       <div style={{
-        maxWidth: '78%',
+        maxWidth: 'min(85vw, 600px)',
         background: isUser ? 'var(--ink)' : 'var(--paper-2)',
         color: isUser ? 'var(--paper)' : 'var(--ink)',
         border: isUser ? 'none' : '1px solid var(--hairline)',
@@ -47,7 +47,7 @@ function Bubble({ msg }: { msg: Message }) {
         borderBottomRightRadius: isUser ? 4 : 20,
         borderBottomLeftRadius: isUser ? 20 : 4,
         padding: '10px 16px',
-        fontSize: 17,
+        fontSize: 'clamp(14px, 4vw, 17px)',
         fontFamily: 'Frank Ruhl Libre, serif',
         lineHeight: 1.55,
         wordBreak: 'break-word',
@@ -114,15 +114,30 @@ export default function ChatPage() {
   const [showSidebar, setShowSidebar] = useState(false)
   const [showCharacterMenu, setShowCharacterMenu] = useState(false)
   const [error, setError] = useState('')
+  const [isPasswordLocked, setIsPasswordLocked] = useState(true)
+  const [passwordInput, setPasswordInput] = useState('')
+  const [passwordError, setPasswordError] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const currentConversation = conversations.find(c => c.id === currentConversationId)
   const messages = currentConversation?.messages ?? []
 
-  // Load conversations from localStorage on mount
+  // Check password on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const hash = localStorage.getItem('stoic_password_hash')
+      if (hash) {
+        setIsPasswordLocked(true)
+      } else {
+        setIsPasswordLocked(false)
+      }
+    }
+  }, [])
+
+  // Load conversations from localStorage on mount (only if unlocked)
+  useEffect(() => {
+    if (!isPasswordLocked && typeof window !== 'undefined') {
       const saved = storage.getConversations()
       setConversations(saved)
 
@@ -132,7 +147,7 @@ export default function ChatPage() {
         setSelectedCharacter(saved[0].character || 'general')
       }
     }
-  }, [])
+  }, [isPasswordLocked])
 
   // Save current conversation whenever it changes
   useEffect(() => {
@@ -263,13 +278,88 @@ export default function ChatPage() {
 
   const profile = typeof window !== 'undefined' ? storage.getProfile() : null
 
+  // Password lock screen
+  if (isPasswordLocked) {
+    function checkPassword() {
+      setPasswordError('')
+      const hash = localStorage.getItem('stoic_password_hash')
+      const inputHash = btoa(passwordInput)
+      if (hash === inputHash) {
+        setIsPasswordLocked(false)
+      } else {
+        setPasswordError('סיסמה שגויה')
+        setPasswordInput('')
+      }
+    }
+
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8" style={{ background: 'var(--paper)' }}>
+        <div style={{ maxWidth: 350, width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="text-center">
+            <h1 style={{ fontFamily: 'EB Garamond, serif', fontSize: 32, color: 'var(--ink)', marginBottom: 4 }}>
+              ἀρετή
+            </h1>
+            <p className="font-body-sm" style={{ color: 'var(--ink-2)' }}>הכנס את הסיסמה שלך</p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={e => setPasswordInput(e.target.value)}
+              placeholder="סיסמה"
+              autoFocus
+              onKeyDown={e => {
+                if (e.key === 'Enter') checkPassword()
+              }}
+              style={{
+                background: 'var(--paper-2)',
+                border: '1px solid var(--hairline)',
+                borderRadius: 8,
+                padding: '12px 16px',
+                fontSize: 16,
+                fontFamily: 'Frank Ruhl Libre, serif',
+                color: 'var(--ink)',
+                outline: 'none',
+                direction: 'rtl',
+              }}
+            />
+
+            {passwordError && (
+              <p className="font-body-sm text-center" style={{ color: 'var(--danger)' }}>
+                {passwordError}
+              </p>
+            )}
+
+            <button
+              onClick={checkPassword}
+              style={{
+                background: 'var(--sienna)',
+                color: 'var(--paper)',
+                border: 'none',
+                borderRadius: 8,
+                padding: '12px 16px',
+                fontSize: 16,
+                fontFamily: 'Frank Ruhl Libre, serif',
+                cursor: 'pointer',
+              }}
+            >
+              הכנס
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-screen" style={{ background: 'var(--paper)' }}>
+    <div className="flex h-screen flex-col md:flex-row" style={{ background: 'var(--paper)' }}>
       {/* Sidebar */}
       {showSidebar && (
-        <div className="w-64 flex flex-col border-r border-hairline overflow-hidden" style={{
+        <div className="fixed md:static inset-0 md:w-64 flex flex-col border-r border-hairline overflow-hidden z-40" style={{
           background: 'var(--paper-1)',
           borderRight: '1px solid var(--hairline)',
+          maxWidth: '70vw',
         }}>
           <div className="p-4 border-b border-hairline flex flex-col gap-3">
             <div className="relative">
@@ -385,25 +475,26 @@ export default function ChatPage() {
       )}
 
       {/* Main chat area */}
-      <div className="flex-1 flex flex-col h-screen" style={{ background: 'var(--paper)' }}>
+      <div className="flex-1 flex flex-col h-screen w-full md:w-auto overflow-hidden" style={{ background: 'var(--paper)' }}>
         {/* Top bar */}
-        <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{
+        <div className="flex items-center justify-between px-3 md:px-4 py-2 md:py-3 shrink-0 gap-2" style={{
           borderBottom: '1px solid var(--hairline)',
           background: 'var(--paper)',
           position: 'sticky', top: 0, zIndex: 10,
         }}>
           <button onClick={() => setShowSidebar(!showSidebar)} style={iconBtn}>
-            {showSidebar ? <X size={20} color="var(--ink-2)" strokeWidth={1.5} /> : <Menu size={20} color="var(--ink-2)" strokeWidth={1.5} />}
+            {showSidebar ? <X size={18} color="var(--ink-2)" strokeWidth={1.5} /> : <Menu size={18} color="var(--ink-2)" strokeWidth={1.5} />}
           </button>
 
+          <div style={{ flex: 1 }} />
 
           <button onClick={() => setShowMemory(true)} style={iconBtn}>
-            <Archive size={20} color="var(--ink-2)" strokeWidth={1.5} />
+            <Archive size={18} color="var(--ink-2)" strokeWidth={1.5} />
           </button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto py-4 w-full" style={{ minHeight: 0 }}>
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-center" style={{ opacity: 0.6 }}>
               <p style={{ fontFamily: 'EB Garamond, serif', fontStyle: 'italic', fontSize: 19, color: 'var(--ink-2)', lineHeight: 1.7 }}>
@@ -426,26 +517,26 @@ export default function ChatPage() {
         </div>
 
         {/* Composer */}
-        <div className="shrink-0 px-3 py-3 flex gap-2 items-end" style={{
+        <div className="shrink-0 px-2 md:px-3 py-2 md:py-3 flex gap-2 items-end" style={{
           borderTop: '1px solid var(--hairline)',
           background: 'var(--paper)',
-          paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))',
+          paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))',
         }}>
           <textarea
             ref={textareaRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-            placeholder="כתוב משהו כאן..."
+            placeholder="כתוב משהו..."
             rows={1}
             style={{
               flex: 1,
               resize: 'none',
               background: 'var(--paper-1)',
               border: '1px solid var(--hairline)',
-              borderRadius: 24,
-              padding: '10px 16px',
-              fontSize: 17,
+              borderRadius: 20,
+              padding: '8px 12px',
+              fontSize: 'clamp(14px, 4vw, 16px)',
               fontFamily: 'Frank Ruhl Libre, serif',
               color: 'var(--ink)',
               outline: 'none',
@@ -455,11 +546,11 @@ export default function ChatPage() {
           />
 
           {/* Character selector - shows icon by default, character name when selected */}
-          <div className="relative">
+          <div className="relative hidden sm:block">
             <button
               onClick={() => setShowCharacterMenu(!showCharacterMenu)}
               style={{
-                width: 40, height: 40,
+                width: 'clamp(32px, 8vw, 40px)', height: 'clamp(32px, 8vw, 40px)',
                 borderRadius: '50%',
                 border: 'none',
                 background: 'var(--sienna)',
@@ -469,7 +560,7 @@ export default function ChatPage() {
                 flexShrink: 0,
                 transition: 'background 0.16s',
                 position: 'relative',
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: 600,
                 fontFamily: 'Inter, sans-serif',
                 overflow: 'hidden',
@@ -519,7 +610,7 @@ export default function ChatPage() {
             onClick={send}
             disabled={!input.trim() || streaming}
             style={{
-              width: 40, height: 40,
+              width: 'clamp(32px, 8vw, 40px)', height: 'clamp(32px, 8vw, 40px)',
               borderRadius: '50%',
               border: 'none',
               background: input.trim() && !streaming ? 'var(--sienna)' : 'var(--sienna-soft)',
@@ -529,7 +620,7 @@ export default function ChatPage() {
               transition: 'background 0.16s',
             }}
           >
-            <Send size={16} color="var(--paper)" strokeWidth={2} />
+            <Send size={14} color="var(--paper)" strokeWidth={2} />
           </button>
         </div>
 

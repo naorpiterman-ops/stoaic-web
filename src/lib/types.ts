@@ -25,7 +25,7 @@ export interface UserProfile {
 
 export interface Exercise {
   id: string
-  type: 'view_from_above' | 'morning_prep' | 'evening_review' | 'free_writing'
+  type: 'view_from_above' | 'morning_prep' | 'evening_review' | 'free_writing' | 'weekly_challenge'
   completedAt: number
   userInput?: string
   claudeAnalysis?: string

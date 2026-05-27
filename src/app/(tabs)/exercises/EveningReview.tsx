@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { storage } from '@/lib/storage'
 
-export default function EveningReview({ onBack }: { onBack: () => void }) {
+export default function EveningReview({ onBack, onShowHistory }: { onBack: () => void; onShowHistory?: () => void }) {
   const [good, setGood] = useState('')
   const [challenge, setChallenge] = useState('')
   const [tomorrow, setTomorrow] = useState('')
@@ -34,7 +34,12 @@ export default function EveningReview({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-screen flex flex-col px-6 py-8 gap-5" style={{ background: 'var(--paper)', maxWidth: 560, margin: '0 auto' }}>
-      <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--ink-2)', cursor: 'pointer', alignSelf: 'flex-start', fontSize: 15 }}>← חזרה</button>
+      <div className="flex justify-between items-center">
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--ink-2)', cursor: 'pointer', fontSize: 15 }}>← חזרה</button>
+        {onShowHistory && (
+          <button onClick={onShowHistory} style={{ background: 'none', border: 'none', color: 'var(--ink-2)', cursor: 'pointer', fontSize: 15, textDecoration: 'underline' }}>היסטוריה</button>
+        )}
+      </div>
       <div>
         <h2 style={{ fontFamily: 'EB Garamond, serif', fontSize: 26, color: 'var(--ink)' }}>סיכום יום</h2>
         <p className="font-caption" style={{ color: 'var(--ink-3)' }}>{new Date().toLocaleDateString('he-IL')}</p>
